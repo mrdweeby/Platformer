@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: -6785745889926984149}
   m_Layer: 0
   m_Name: Player
-  m_TagString: Untagged
+  m_TagString: Player
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -177,3 +177,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   prefabBullet: {fileID: 8947210933062668898, guid: dd9f698d0088c594291684c606ffe226, type: 3}
   prefabWeapon: {fileID: 8947210933062668898, guid: dd9f698d0088c594291684c606ffe226, type: 3}
+  tr: {fileID: 0}

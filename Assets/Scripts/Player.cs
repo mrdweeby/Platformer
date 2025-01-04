@@ -4,12 +4,12 @@ using UnityEngine;
 
 public class Player : MonoBehaviour
 {
-    Rigidbody2D rb2d;
+    bool isFacingRight = true;
+    float horizontalInput;
     const float speed = 5f;
-    const float jumpForce = 5f;
-    const float dashForce = 30f;
-    int jumpCount = 0;
-    const int maxJumpCount = 2;
+    const float jumpForce = 7f;
+    const float doubleJumpForce = 8f;
+    bool doubleJump;
     const float bulletOffset = 1f;
     int bulletShot = 0;
     const int bulletMag = 30;
@@ -18,13 +18,33 @@ public class Player : MonoBehaviour
     float _nextFireTime;
     private bool IsCoolDown => Time.time < _nextFireTime;
     private void StartCoolDown() => _nextFireTime = Time.time + coolDownTime;
-
     const float reloadTime = 3f;
 
-    [SerializeField]
-    GameObject prefabBullet;
-    [SerializeField]
-    GameObject prefabWeapon;
+    bool canDash = true;
+    bool isDashing;
+    float dashingForce = 24f;
+    float dashingTime = 0.2f;
+    float dashingCooldown = 1f;
+
+    bool isWallJumping;
+    float wallJumpingDirection;
+    float wallJumpingTime = 0.2f;
+    float wallJumpingCounter;
+    float wallJumpingDuration = 0.4f;
+    Vector2 wallJumpingPower = new Vector2(8f, 16f);
+
+    bool isWallSliding;
+    const float wallSlidingSpeed = 2f;
+
+    Rigidbody2D rb2d;
+    [SerializeField] GameObject prefabBullet;
+    [SerializeField] GameObject prefabWeapon;
+    [SerializeField] TrailRenderer tr;
+    [SerializeField] Transform groundCheck;
+    [SerializeField] LayerMask groundLayer;
+    [SerializeField] Transform wallCheck;
+    [SerializeField] LayerMask wallLayer;
+
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -38,6 +58,10 @@ public class Player : MonoBehaviour
     {
         Move();
         Shoot();
+        if (!isWallJumping)
+        {
+            Flip();
+        }
     }
 
 
@@ -73,30 +97,139 @@ public class Player : MonoBehaviour
 
     void Move()
     {
-        Vector3 position = transform.position;
-        float horizontalInput = Input.GetAxis("Horizontal");
-        bool jumped = Input.GetKeyDown(KeyCode.Space);
-        bool dashed = Input.GetKeyDown(KeyCode.LeftShift);
-        rb2d.linearVelocity = new Vector2(horizontalInput * speed, rb2d.linearVelocityY);
-
-        if (jumped && jumpCount < maxJumpCount)
+        if (isDashing)
         {
-            rb2d.AddForce(Vector3.up * jumpForce, ForceMode2D.Impulse);
-            jumpCount++;
+            return;
         }
 
-        if (dashed && horizontalInput != 0)
+        horizontalInput = Input.GetAxis("Horizontal");
+        
+        if (!isWallJumping) 
         {
-            rb2d.AddForce(new Vector2(Mathf.Sign(horizontalInput), 0) * dashForce 
-                , ForceMode2D.Impulse);
+            rb2d.linearVelocity = new Vector2(horizontalInput * speed, rb2d.linearVelocityY);
+        }
+
+        if (Input.GetButtonDown("Dash") && canDash)
+        {
+            StartCoroutine(Dash());
+        }
+
+        Jump();
+        WallSlide();
+        WallJump();
+    }
+
+
+    void Jump()
+    {
+        if (isGrounded() && !Input.GetButton("Jump"))
+        {
+            doubleJump = false;
+        }
+
+        if (Input.GetButtonDown("Jump"))
+        {
+            if (isGrounded() || doubleJump)
+            {
+                rb2d.linearVelocity = new Vector2(rb2d.linearVelocityX, doubleJump ? doubleJumpForce : jumpForce);
+                doubleJump = !doubleJump;
+            }
+        }
+
+        if (Input.GetButtonUp("Jump") && !isGrounded())
+        {
+            rb2d.linearVelocity = new Vector2(rb2d.linearVelocityX, rb2d.linearVelocityY * 0.5f);
         }
     }
 
-    void OnCollisionEnter2D(Collision2D collision)
+    void WallSlide()
     {
-        if (collision.gameObject.CompareTag("Ground"))
+        if (isWalled() && !isGrounded() && horizontalInput != 0f)
         {
-            jumpCount = 0;
+            isWallSliding = true;
+            rb2d.linearVelocity = new Vector2(rb2d.linearVelocityX,
+                Mathf.Clamp(rb2d.linearVelocityY, -wallSlidingSpeed, float.MaxValue));
+        }
+        else
+        {
+            isWallSliding = false;
+        }
+    }
+
+    void WallJump()
+    {
+        if (isWallSliding)
+        {
+            isWallJumping = false;
+            wallJumpingDirection = -transform.localScale.x;
+            wallJumpingCounter = wallJumpingTime;
+
+            CancelInvoke(nameof(StopWallJumping));
+        }
+        else
+        {
+            wallJumpingCounter -= Time.deltaTime;
+        }
+
+        if (Input.GetButtonDown("Jump") && wallJumpingCounter > 0)
+        {
+            isWallJumping = true;
+            rb2d.linearVelocity = new Vector2(wallJumpingDirection * wallJumpingPower.x, wallJumpingPower.y);
+            wallJumpingCounter = 0;
+            if (transform.localScale.x != wallJumpingDirection)
+            {
+                isFacingRight = !isFacingRight;
+                Vector3 localscale = transform.localScale;
+                localscale.x *= -1f;
+                transform.localScale = localscale;
+            }
+            Invoke(nameof(StopWallJumping), wallJumpingDuration);
+        }
+    }
+
+    void StopWallJumping()
+    {
+        isWallJumping = false;
+    }
+
+    IEnumerator Dash()
+    {
+        canDash = false;
+        isDashing = true;
+        float originalGravity = rb2d.gravityScale;
+        rb2d.gravityScale = 0;
+        float dashDirection = Mathf.Sign(Input.GetAxis("Horizontal"));
+        rb2d.linearVelocityX = dashDirection * dashingForce;
+        
+        tr.emitting = true;
+        yield return new WaitForSeconds(dashingTime);
+        
+        tr.emitting = false;
+        rb2d.gravityScale = originalGravity;
+        isDashing = false;
+        yield return new WaitForSeconds(dashingCooldown);
+        
+        canDash = true;
+    }
+
+    bool isGrounded()
+    {
+        return Physics2D.OverlapCircle(groundCheck.position, 0.2f, groundLayer);
+    }
+
+    bool isWalled()
+    {
+        return Physics2D.OverlapCircle(wallCheck.position, 0.2f, wallLayer);
+    }
+
+    void Flip()
+    {
+        if (isFacingRight && horizontalInput < 0f || !isFacingRight && horizontalInput > 0f)
+        {
+            isFacingRight = !isFacingRight;
+            Vector3 localscale = transform.localScale;
+            localscale.x *= -1f;
+            transform.localScale = localscale;
         }
     }
 }
