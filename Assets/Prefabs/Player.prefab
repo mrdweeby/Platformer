@@ -176,5 +176,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   prefabBullet: {fileID: 8947210933062668898, guid: dd9f698d0088c594291684c606ffe226, type: 3}
-  prefabWeapon: {fileID: 8947210933062668898, guid: dd9f698d0088c594291684c606ffe226, type: 3}
+  prefabHook: {fileID: 0}
   tr: {fileID: 0}
+  groundCheck: {fileID: 0}
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 64
+  wallCheck: {fileID: 0}
+  wallLayer:
+    serializedVersion: 2
+    m_Bits: 192

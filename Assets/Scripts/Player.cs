@@ -24,7 +24,7 @@ public class Player : MonoBehaviour
     bool isDashing;
     float dashingForce = 24f;
     float dashingTime = 0.2f;
-    float dashingCooldown = 1f;
+    float dashingCooldown = 0.5f;
 
     bool isWallJumping;
     float wallJumpingDirection;
@@ -36,19 +36,25 @@ public class Player : MonoBehaviour
     bool isWallSliding;
     const float wallSlidingSpeed = 2f;
 
+    int hookShot = 0;
+
     Rigidbody2D rb2d;
     [SerializeField] GameObject prefabBullet;
-    [SerializeField] GameObject prefabWeapon;
+    [SerializeField] Hook prefabHook;
     [SerializeField] TrailRenderer tr;
     [SerializeField] Transform groundCheck;
     [SerializeField] LayerMask groundLayer;
     [SerializeField] Transform wallCheck;
     [SerializeField] LayerMask wallLayer;
+    [SerializeField] Camera mainCamera;
+    [SerializeField] LineRenderer _lineRenderer;
+    [SerializeField] DistanceJoint2D _distanceJoint;
 
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
+        _distanceJoint.enabled = false;
         rb2d = GetComponent<Rigidbody2D>();
         _nextFireTime = Time.time;
     }
@@ -61,6 +67,30 @@ public class Player : MonoBehaviour
         if (!isWallJumping)
         {
             Flip();
+        }
+        Hook();
+
+    }
+
+    void Hook()
+    {
+        if (Input.GetButtonDown("Hook"))
+        {
+            Vector2 mousePos = (Vector2)mainCamera.ScreenToWorldPoint(Input.mousePosition);
+            _lineRenderer.SetPosition(0, mousePos);
+            _lineRenderer.SetPosition(1, transform.position);
+            _distanceJoint.connectedAnchor = mousePos;
+            _distanceJoint.enabled = true;
+            _lineRenderer.enabled = true;
+        }
+        else if (Input.GetButtonUp("Hook"))
+        {
+            _distanceJoint.enabled = false;
+            _lineRenderer.enabled = false;
+        }
+        if (_distanceJoint.enabled)
+        {
+            _lineRenderer.SetPosition(1, transform.position);
         }
     }
 
